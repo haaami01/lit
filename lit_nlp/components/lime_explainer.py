@@ -39,7 +39,7 @@ KERNEL_WIDTH_KEY = 'Kernel width'
 MASK_KEY = 'Mask'
 NUM_SAMPLES_KEY = 'Number of samples'
 SEED_KEY = 'Seed'
-CLASS_DEFAULT = 1
+CLASS_DEFAULT = -1
 KERNEL_WIDTH_DEFAULT = 256
 MASK_DEFAULT = '[MASK]'
 NUM_SAMPLES_DEFAULT = 256
@@ -119,6 +119,14 @@ class LIME(lit_components.Interpreter):
       predict_fn = functools.partial(
           _predict_fn, model=model, original_example=input_, pred_key=pred_key)
 
+       # If class_to_explain is -1, then explain the argmax class
+      if (isinstance(model.output_spec()[pred_key], types.MulticlassPreds) and
+          class_to_explain == -1):
+        pred = list(model.predict([input_]))[0]
+        class_to_explain_for_input = np.argmax(pred[pred_key])
+      else:
+        class_to_explain_for_input = class_to_explain
+
       # Explain each text segment in the input, keeping the others constant.
       for text_key in text_keys:
         input_string = input_[text_key]
@@ -132,7 +140,7 @@ class LIME(lit_components.Interpreter):
             sentence=input_string,
             predict_fn=functools.partial(predict_fn, text_key=text_key),
             # `class_to_explain` is ignored when predict_fn output is a scalar.
-            class_to_explain=class_to_explain,  # Index of the class to explain.
+            class_to_explain=class_to_explain_for_input,
             num_samples=num_samples,
             tokenizer=str.split,
             mask_token=mask_string,
